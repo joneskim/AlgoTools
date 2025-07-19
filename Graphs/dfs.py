@@ -13,6 +13,23 @@ class Graph:
     def add_edge(self, node1, node2):
         self.nodes[node1].append(node2)
 
+
+class DFSVisitor:
+    def pre_process(self, node):
+        pass
+    
+    def post_process(self, node):
+        pass
+    
+    def back_edge(self, node, neighbor):
+        pass
+    
+    def forward_edge(self, node, neighbor):
+        pass
+    
+    def cross_edge(self, node, neighbor):
+        pass
+
 class DFSTraversalTemplate:
     WHITE = 0
     GRAY = 1
@@ -25,6 +42,10 @@ class DFSTraversalTemplate:
         self.finish = {}
         self.parents = {}
         self.time = 0
+        self.visitor = DFSVisitor()
+
+    def set_visitor(self, visitor: "DFSVisitor"):
+        self.visitor = visitor
 
     def initialize(self):
         self.COLORS = {node: self.WHITE for node in self.graph.nodes}
@@ -42,65 +63,71 @@ class DFSTraversalTemplate:
         self.discovery[node] = self.time
         self.time += 1
 
-        self.pre_process(node)
+        self.visitor.pre_process(node)
         
         for neighbor in self.graph.nodes[node]:
             if self.COLORS[neighbor] == self.WHITE:
                 self.parents[neighbor] = node
                 self.dfs(neighbor)
             elif self.COLORS[neighbor] == self.GRAY:
-                self.back_edge(node, neighbor)
+                self.visitor.back_edge(node, neighbor)
             elif self.COLORS[neighbor] == self.BLACK:
                 if self.discovery[node] < self.discovery[neighbor]:
-                    self.forward_edge(node, neighbor)
+                    self.visitor.forward_edge(node, neighbor)
                 else:
-                    self.cross_edge(node, neighbor)
+                    self.visitor.cross_edge(node, neighbor)
         
         self.COLORS[node] = self.BLACK
         self.finish[node] = self.time
         self.time += 1
-        self.post_process(node)
+        self.visitor.post_process(node)
 
-    def pre_process(self, node):
-        pass
+
+class TopoSortVisitor(DFSVisitor):
+    def __init__(self, topo_order: list):
+        super().__init__()
+        self.topo_order = topo_order
     
     def post_process(self, node):
-        pass
+        self.topo_order.append(node)
+
+class CyclicGraphVisitor(DFSVisitor):
+    def __init__(self):
+        super().__init__()
     
     def back_edge(self, node, neighbor):
-        pass
-        
-    def forward_edge(self, node, neighbor):
-        pass
-        
-    def cross_edge(self, node, neighbor):
-        pass
-        
+        print("Cyclic Graph")
+        raise CyclicGraphException("Cyclic Graph")
 
-class DFSTraversal(DFSTraversalTemplate):
-    def __init__(self, graph: "Graph"):
-        super().__init__(graph)
-    
-    def run(self, start_node = None):
-        self.initialize()
-        self.dfs(start_node)
-        return self.discovery, self.finish, self.parents
-
+class CyclicGraphException(Exception):
+    pass
 
 
 class TopoSort(DFSTraversalTemplate):
     def __init__(self, graph: "Graph"):
         super().__init__(graph)
         self.topo_order = []
-    
-    def post_process(self, node):
-        self.topo_order.append(node)
+        self.visitor = TopoSortVisitor(self.topo_order)
+        self.set_visitor(CyclicGraphVisitor())
 
     def run(self, start_node = None):
         self.initialize()
         self.dfs(start_node)
-        return self.topo_order
-        
+        return self.visitor.topo_order
+
+class TraversalFactory:
+    def __init__(self, traversal: str, graph: "Graph"):
+        self.traversals = {
+            "dfs": DFSTraversalTemplate,
+            "topo_sort": TopoSort
+        }
+        self.graph = graph
+        self.traversal = traversal
+    
+    def __call__(self):
+        return self.traversals[self.traversal](self.graph)
+    
+
 
 if __name__ == "__main__":
     graph = Graph()
@@ -115,27 +142,16 @@ if __name__ == "__main__":
         'F': ['C', 'E']
     }
 
-    # traversal = DFSTraversal(graph)
-    # traversal.run('A')
-    
-    
-    
-    # print("Discovery Times:")
-    # for k, v in traversal.discovery.items():
-    #     print(f"{k}: {v}")
-    
-    # print("Finish Times:")
-    # for k, v in traversal.finish.items():
-    #     print(f"{k}: {v}")
-    
-    # print("Parents:")
-    # for k, v in traversal.parents.items():
-    #     print(f"{k}: {v}")
+    traversal = TraversalFactory("dfs", graph)()
 
-    
-    topo_sort = TopoSort(graph)
-    topo_sort.run('A')
-    print("Topo Sort:")
-    for k in topo_sort.topo_order[::-1]:
-        print(f"{k}")
+
+    topo_sort = TraversalFactory("topo_sort", graph)()
+    try:
+        topo_sort.run('A')
+    except CyclicGraphException as e:
+        print(e)
+    except Exception as e:
+        print(e)
+    print(topo_sort.topo_order)
+
     
