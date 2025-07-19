@@ -82,6 +82,33 @@ class DFSTraversalTemplate:
         self.time += 1
         self.visitor.post_process(node)
 
+class CompositeVisitor(DFSVisitor):
+    def __init__(self, visitors=None):
+        self.visitors = visitors or []
+
+    def add(self, visitor: DFSVisitor):
+        self.visitors.append(visitor)
+
+    def pre_process(self, node):
+        for v in self.visitors:
+            v.pre_process(node)
+
+    def post_process(self, node):
+        for v in self.visitors:
+            v.post_process(node)
+
+    def back_edge(self, node, neighbor):
+        for v in self.visitors:
+            v.back_edge(node, neighbor)
+
+    def forward_edge(self, node, neighbor):
+        for v in self.visitors:
+            v.forward_edge(node, neighbor)
+
+    def cross_edge(self, node, neighbor):
+        for v in self.visitors:
+            v.cross_edge(node, neighbor)
+
 
 class TopoSortVisitor(DFSVisitor):
     def __init__(self, topo_order: list):
@@ -97,7 +124,7 @@ class CyclicGraphVisitor(DFSVisitor):
     
     def back_edge(self, node, neighbor):
         print("Cyclic Graph")
-        raise CyclicGraphException("Cyclic Graph")
+        # raise CyclicGraphException("Cyclic Graph")
 
 class CyclicGraphException(Exception):
     pass
@@ -107,13 +134,12 @@ class TopoSort(DFSTraversalTemplate):
     def __init__(self, graph: "Graph"):
         super().__init__(graph)
         self.topo_order = []
-        self.visitor = TopoSortVisitor(self.topo_order)
-        self.set_visitor(CyclicGraphVisitor())
+        self.set_visitor(CompositeVisitor([CyclicGraphVisitor(), TopoSortVisitor(self.topo_order)]))
 
     def run(self, start_node = None):
         self.initialize()
         self.dfs(start_node)
-        return self.visitor.topo_order
+        return self.topo_order
 
 class TraversalFactory:
     def __init__(self, traversal: str, graph: "Graph"):
@@ -131,7 +157,6 @@ class TraversalFactory:
 
 if __name__ == "__main__":
     graph = Graph()
-
 
     graph.nodes = {
         'A': ['B', 'C'],
