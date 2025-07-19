@@ -3,32 +3,7 @@
 # and applying the gang of four design patterns
 # specifically the strategy pattern, template method pattern(with hooks)
 
-class Graph:
-    def __init__(self):
-        self.nodes = {}
-
-    def add_node(self, node):
-        self.nodes[node] = []
-
-    def add_edge(self, node1, node2):
-        self.nodes[node1].append(node2)
-
-
-class DFSVisitor:
-    def pre_process(self, node):
-        pass
-    
-    def post_process(self, node):
-        pass
-    
-    def back_edge(self, node, neighbor):
-        pass
-    
-    def forward_edge(self, node, neighbor):
-        pass
-    
-    def cross_edge(self, node, neighbor):
-        pass
+from graph import Graph, TraversalVisitor, TraversalFactory, CompositeVisitor
 
 class DFSTraversalTemplate:
     WHITE = 0
@@ -42,9 +17,9 @@ class DFSTraversalTemplate:
         self.finish = {}
         self.parents = {}
         self.time = 0
-        self.visitor = DFSVisitor()
+        self.visitor = TraversalVisitor()
 
-    def set_visitor(self, visitor: "DFSVisitor"):
+    def set_visitor(self, visitor: "TraversalVisitor"):
         self.visitor = visitor
 
     def initialize(self):
@@ -82,35 +57,9 @@ class DFSTraversalTemplate:
         self.time += 1
         self.visitor.post_process(node)
 
-class CompositeVisitor(DFSVisitor):
-    def __init__(self, visitors=None):
-        self.visitors = visitors or []
-
-    def add(self, visitor: DFSVisitor):
-        self.visitors.append(visitor)
-
-    def pre_process(self, node):
-        for v in self.visitors:
-            v.pre_process(node)
-
-    def post_process(self, node):
-        for v in self.visitors:
-            v.post_process(node)
-
-    def back_edge(self, node, neighbor):
-        for v in self.visitors:
-            v.back_edge(node, neighbor)
-
-    def forward_edge(self, node, neighbor):
-        for v in self.visitors:
-            v.forward_edge(node, neighbor)
-
-    def cross_edge(self, node, neighbor):
-        for v in self.visitors:
-            v.cross_edge(node, neighbor)
 
 
-class TopoSortVisitor(DFSVisitor):
+class TopoSortVisitor(TraversalVisitor):
     def __init__(self, topo_order: list):
         super().__init__()
         self.topo_order = topo_order
@@ -118,17 +67,16 @@ class TopoSortVisitor(DFSVisitor):
     def post_process(self, node):
         self.topo_order.append(node)
 
-class CyclicGraphVisitor(DFSVisitor):
+class CyclicGraphVisitor(TraversalVisitor):
     def __init__(self):
         super().__init__()
     
     def back_edge(self, node, neighbor):
         print("Cyclic Graph")
-        # raise CyclicGraphException("Cyclic Graph")
+        raise CyclicGraphException("Cyclic Graph")
 
 class CyclicGraphException(Exception):
     pass
-
 
 class TopoSort(DFSTraversalTemplate):
     def __init__(self, graph: "Graph"):
@@ -139,21 +87,10 @@ class TopoSort(DFSTraversalTemplate):
     def run(self, start_node = None):
         self.initialize()
         self.dfs(start_node)
-        return self.topo_order
+        return list(reversed(self.topo_order))
 
-class TraversalFactory:
-    def __init__(self, traversal: str, graph: "Graph"):
-        self.traversals = {
-            "dfs": DFSTraversalTemplate,
-            "topo_sort": TopoSort
-        }
-        self.graph = graph
-        self.traversal = traversal
-    
-    def __call__(self):
-        return self.traversals[self.traversal](self.graph)
-    
 
+    
 
 if __name__ == "__main__":
     graph = Graph()
@@ -167,16 +104,43 @@ if __name__ == "__main__":
         'F': ['C', 'E']
     }
 
-    traversal = TraversalFactory("dfs", graph)()
+    traversals = {
+        "dfs": DFSTraversalTemplate,
+        "topo_sort": TopoSort,
+    }
+    graph = Graph()
+    graph.nodes = {
+        'A': ['B', 'C'],
+        'B': ['A', 'D', 'E'],
+        'C': ['A', 'F'],
+        'D': ['B'],
+        'E': ['B', 'F'],
+        'F': ['C', 'E']
+    }
 
+    traversal = TraversalFactory(traversals, graph)
+    traversal.set_traversal("dfs")
+    dfs_result = traversal("A")
+    print(dfs_result.discovery)
+    print(dfs_result.finish)
+    print(dfs_result.parents)
 
-    topo_sort = TraversalFactory("topo_sort", graph)()
-    try:
-        topo_sort.run('A')
-    except CyclicGraphException as e:
-        print(e)
-    except Exception as e:
-        print(e)
-    print(topo_sort.topo_order)
+    dag = Graph()
+    dag.nodes = {
+        'A': ['B', 'C'],
+        'B': ['D', 'E'],
+        'C': ['F'],
+        'D': [],
+        'E': ['F'],
+        'F': []
+    }
+
+    acyclic_graph_traversal = TraversalFactory(traversals, dag)
+    acyclic_graph_traversal.set_traversal("topo_sort")
+    topo_result = acyclic_graph_traversal("A")
+    print(topo_result.topo_order)
+    
+    
+    
 
     
