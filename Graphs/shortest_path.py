@@ -9,6 +9,7 @@ class BellmanFord:
         self.graph = graph
         self.dist = {}
         self.parents = {}
+
     
     def relax(self, u, v, weight):
         if self.dist[v] > self.dist[u] + weight:
@@ -35,15 +36,13 @@ class BellmanFord:
         return True
 
     def get_shortest_path(self, start, end):
-        if not self.run(start):
-            return None
         path = []
         curr = end
         while curr != start:
             path.append(curr)
             curr = self.parents[curr]
         path.append(start)
-        return path
+        return path[::-1]
 
                     
 if __name__ == "__main__":
